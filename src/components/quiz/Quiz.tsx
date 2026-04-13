@@ -14,7 +14,7 @@ const TOTAL_STEPS = 12;
 const CRM_URL = "https://salesyscrm.vercel.app/api/public/leads";
 const LEAD_CAPTURE_KEY = "braveo-principal-pixel-001";
 const SHEETS_URL =
-  "https://script.google.com/macros/s/AKfycbxu9fubUQJAekmnmEbvEfuXofW7PEAJ18unuUwyxz-oQ56rF513JSuTihPqq3we77F4Fg/exec";
+  "https://script.google.com/macros/s/AKfycbyP-QbHP8R7abyDzqHiG3g-k8YmJhRrWk9rDeCpxEsPwROi82c5P1OfIzPO0paQa6Xo4Q/exec";
 const WHATSAPP_NUMBER = "558694271798";
 
 const slideVariants = {
@@ -525,32 +525,40 @@ const Quiz = () => {
                     console.error("CRM lead capture request error", error);
                   });
 
-                const sheetsPromise = fetch(SHEETS_URL, {
-                  method: "POST",
-                  mode: "no-cors",
-                  headers: { "Content-Type": "text/plain" },
-                  body: JSON.stringify({
-                    nomeCompleto: answers.nomeCompleto,
-                    email: answers.email,
-                    telefone: answers.telefone,
-                    documento: normalizedCnpj,
-                    tipoDocumento: "cnpj",
-                    estado: normalizedState,
-                    cidade: answers.cidade,
-                    nomeFarmacia: answers.nomeFarmacia,
-                    faturamento: answers.faturamento,
-                    dor: answers.dor,
-                    desempenho: answers.desempenho,
-                    produtos: answers.produtos,
-                    mediaFaturamento: answers.mediaFaturamento,
-                    compraDistribuidora: answers.compraDistribuidora,
-                    usaRedes: answers.usaRedes,
-                    redesSociais: answers.redesSociais,
-                    fbclid,
-                    ...utms,
-                  }),
-                }).catch((error) => {
-                  console.error("Sheets request error", error);
+                const sheetsPayload = JSON.stringify({
+                  nomeCompleto: answers.nomeCompleto,
+                  email: answers.email,
+                  telefone: answers.telefone,
+                  documento: normalizedCnpj,
+                  tipoDocumento: "cnpj",
+                  estado: normalizedState,
+                  cidade: answers.cidade,
+                  faturamento: answers.faturamento,
+                  desempenho: answers.desempenho,
+                  produtos: answers.produtos,
+                  mediaFaturamento: answers.mediaFaturamento,
+                  fbclid,
+                  ...utms,
+                });
+
+                const sheetsPromise = new Promise<void>((resolve) => {
+                  const sent = navigator.sendBeacon(
+                    SHEETS_URL,
+                    new Blob([sheetsPayload], { type: "text/plain" })
+                  );
+                  if (!sent) {
+                    console.warn("sendBeacon falhou, tentando fetch como fallback");
+                    fetch(SHEETS_URL, {
+                      method: "POST",
+                      mode: "no-cors",
+                      headers: { "Content-Type": "text/plain" },
+                      body: sheetsPayload,
+                    }).catch((error) => {
+                      console.error("Sheets request error", error);
+                    }).finally(resolve);
+                  } else {
+                    resolve();
+                  }
                 });
 
                 await Promise.allSettled([crmPromise, sheetsPromise]);
